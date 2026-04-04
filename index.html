@@ -691,10 +691,6 @@ function pick(trait, el, val) {
   G.traits[trait] = val;
 }
 
-const OPENAI_KEY = '';
-
-let _k = '';
-
 function buildPrompt(t, baby) {
   const skin = {'muy-clara':'very fair porcelain skin','clara':'fair light skin','media':'medium skin tone','olivacea':'olive skin','morena':'dark brown skin','trigue':'warm tan skin'}[t.skin];
   const eyes = {cafe:'dark brown eyes',miel:'honey amber eyes',verde:'green eyes',azul:'bright blue eyes',gris:'gray eyes',negro:'very dark black eyes'}[t.eyes];
@@ -705,26 +701,19 @@ function buildPrompt(t, baby) {
 }
 
 async function tryFetch(prompt) {
-  const body = JSON.stringify({ model: 'dall-e-3', prompt, n: 1, size: '1024x1024', quality: 'standard' });
-  const headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + OPENAI_KEY };
-
-  const proxies = [
-    url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-    url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-    url => url  // direct as last resort
-  ];
-
-  const apiUrl = 'https://api.openai.com/v1/images/generations';
-  for (const proxyFn of proxies) {
-    try {
-      const resp = await fetch(proxyFn(apiUrl), { method:'POST', headers, body });
-      if (!resp.ok) { console.warn('HTTP', resp.status); continue; }
-      const data = await resp.json();
-      if (data.data?.[0]?.url) return data.data[0].url;
-    } catch(e) { console.warn('proxy failed:', e.message); }
-  }
+  try {
+    const resp = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt })
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    if (data.data?.[0]?.url) return data.data[0].url;
+  } catch(e) { console.warn('Error:', e.message); }
   return null;
 }
+
 
 async function generate() {
   const keys = ['eyes','hair','skin','cheeks','personality','weight'];
@@ -732,11 +721,6 @@ async function generate() {
   if (missing.length) { alert('¡Falta elegir algunos rasgos! 🎀'); return; }
   G.playerName = document.getElementById('player-name').value.trim() || 'Invitado/a';
   G.resemblance = parseInt(document.getElementById('resemblance').value);
-
-  if (!_k) {
-    _k = prompt('🔑 Ingresa la API key de OpenAI para generar la foto:') || '';
-    if (!_k) { alert('Se necesita la API key para generar la foto. El juego continuará con el modo ilustrado.'); }
-  }
 
   const ldEl = document.getElementById('loading');
   const ldSub = ldEl.querySelector('.ld-sub');
